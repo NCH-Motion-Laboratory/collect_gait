@@ -7,8 +7,6 @@ Utility functions.
 """
 
 
-from __future__ import print_function
-
 import glob
 import os
 import os.path as op
@@ -77,10 +75,9 @@ def get_sessiondirs(rootdir, newer_than=None):
     -------
     str
         A session directory.
-    """    
+    """
     dirs = _get_subdirs_recursive(rootdir)
     sessiondirs = _filter_is_gait_session(dirs)
     if newer_than is not None:
         sessiondirs = _filter_newer(sessiondirs, newer_than)
-    for dir in sessiondirs:
-        yield dir
+    yield from sessiondirs
