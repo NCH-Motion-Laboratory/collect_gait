@@ -49,21 +49,38 @@ def _get_date(sessiondir):
 
 
 def _filter_newer(sessiondirs, date):
-    """Filter for sessions that are newer than given date, e.g. datetime.datetime(2018, 3, 1)"""
+    """Filter for sessions that are newer than given datetime.datetime object"""
     for sessiondir in sessiondirs:
         if _get_date(sessiondir) > date:
             yield sessiondir
 
 
 def _filter_is_gait_session(dirnames):
+    """Filter for gait sessions"""
     for dirname in dirnames:
         if _is_gait_session(dirname):
             yield dirname
 
 
 def get_sessiondirs(rootdir, newer_than=None):
+    """Recursively get all gait session directories under a given directory.
+
+    Parameters
+    ----------
+    rootdir : str
+        The directory under which to search.
+    newer_than : datetime.datetime
+        If not None, return only sessions newer than given date.
+        E.g. newer_than=datetime.datetime(2018, 3, 1)
+
+    Yields
+    -------
+    str
+        A session directory.
+    """    
     dirs = _get_subdirs_recursive(rootdir)
     sessiondirs = _filter_is_gait_session(dirs)
     if newer_than is not None:
         sessiondirs = _filter_newer(sessiondirs, newer_than)
-    return sessiondirs
+    for dir in sessiondirs:
+        yield dir

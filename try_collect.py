@@ -7,18 +7,21 @@ testbench for collect_gait
 """
 
 
-from __future__ import print_function
-from random import shuffle
-import glob
-import os
-import os.path as op
-from openpyxl import Workbook
-from time import localtime, strftime
-import logging
-import json
-from gaitutils import sessionutils
-
-from collect_gait import _write_workbook
+from collect_gait import utils
+import datetime
 
 
-logger = logging.getLogger(__name__)
+
+
+# %%
+
+date = datetime.datetime(2018, 3, 1)
+rootdir = r"Z:\Userdata_Vicon_Server\1_Diplegia"
+
+
+dirs = utils.get_sessiondirs(rootdir, newer_than=date)
+
+for d in dirs:
+    print(d)
+
+
