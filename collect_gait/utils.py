@@ -10,6 +10,7 @@ Utility functions.
 import glob
 import os
 import os.path as op
+from re import sub
 from time import localtime, strftime
 import logging
 import datetime
@@ -60,7 +61,14 @@ def _filter_is_gait_session(dirnames):
             yield dirname
 
 
-def get_sessiondirs(rootdir, newer_than=None):
+def _filter_must_include(dirnames, substrings):
+    """Filter according to list of substrings in dir name"""
+    for dirname in dirnames:
+        if any(substr in dirname for substr in substrings):
+            yield dirname
+
+
+def get_sessiondirs(rootdir, newer_than=None, substrings=None):
     """Recursively get all gait session directories under a given directory.
 
     Parameters
@@ -70,6 +78,9 @@ def get_sessiondirs(rootdir, newer_than=None):
     newer_than : datetime.datetime
         If not None, return only sessions newer than given date.
         E.g. newer_than=datetime.datetime(2018, 3, 1)
+    substrings : iterable of str
+        If not None, specifies substrings that must be present in directory
+        names.
 
     Yields
     -------
@@ -77,6 +88,8 @@ def get_sessiondirs(rootdir, newer_than=None):
         A session directory.
     """
     dirs = _get_subdirs_recursive(rootdir)
+    if substrings is not None:
+        dirs = _filter_must_include(dirs, substrings)
     sessiondirs = _filter_is_gait_session(dirs)
     if newer_than is not None:
         sessiondirs = _filter_newer(sessiondirs, newer_than)
