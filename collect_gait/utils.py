@@ -61,8 +61,10 @@ def _filter_is_gait_session(dirnames):
             yield dirname
 
 
-def _filter_must_include(dirnames, substrings):
-    """Filter according to list of substrings in dir name"""
+def _filter_substrings(dirnames, substrings):
+    """Filter according to iterabe of of substrings in dir name"""
+    if isinstance(substrings, str):  # accept also single str
+        substrings = [substrings]
     for dirname in dirnames:
         if any(substr in dirname for substr in substrings):
             yield dirname
@@ -89,7 +91,7 @@ def get_sessiondirs(rootdir, newer_than=None, substrings=None):
     """
     dirs = _get_subdirs_recursive(rootdir)
     if substrings is not None:
-        dirs = _filter_must_include(dirs, substrings)
+        dirs = _filter_substrings(dirs, substrings)
     sessiondirs = _filter_is_gait_session(dirs)
     if newer_than is not None:
         sessiondirs = _filter_newer(sessiondirs, newer_than)
