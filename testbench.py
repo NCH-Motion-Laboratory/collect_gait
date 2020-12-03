@@ -28,14 +28,14 @@ dirs = utils.get_sessiondirs(rootdir, newer_than=date, substrings=substrings)
 
 # %% scan the directory tree
 alldirs = dict()  # save dirs/files here
+MAX_DIRS = 5  # XXX: let's limit the number of dirs for testing purposes
 
 for i, d in enumerate(dirs):
     print(f'reading from {d}')
     c3ds = gaitutils.sessionutils.get_c3ds(d, tags=tags, trial_type='dynamic')
     print(f'{len(c3ds)} tagged trials')
     alldirs[d] = c3ds
-    # XXX: let's limit the number of dirs for testing purposes
-    if i == 5:
+    if i == MAX_DIRS:
         break
 
 print('---')
