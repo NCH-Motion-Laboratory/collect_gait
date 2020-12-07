@@ -53,7 +53,7 @@ trials = [gaitutils.trial.Trial(fn) for fn in allfiles]
 # all model variables will be normalized into gait cycles (x axis 0..100%)
 data_all, ncycles, toeoff_frames = gaitutils.stats.collect_trial_data(trials)
 knee_flex = data_all['model']['LKneeAnglesX']  # extract left sagittal knee angle
-knee_toeoffs = toeoff_frames['LKneeAnglesX']
+knee_toeoffs = toeoff_frames['model']['LKneeAnglesX']
 plt.plot(knee_flex.T)  # matplotlib plots columns by default, so transpose
 
 
