@@ -47,21 +47,27 @@ allfiles = list(itertools.chain.from_iterable(alldirs.values()))
 print(f'{len(allfiles)} total c3d files')
 
 
-# %% load the trials and get some curves
-trials = [gaitutils.trial.Trial(fn) for fn in allfiles]
+# %% collect the data into numpy arrays
+# model variables will be normalized into gait cycles (x axis 0..100%)
+# and collected into data_all['model'];
+# the corresponding gait cycles for each variable will be in cycles_all['model']
+data_all, cycles_all = gaitutils.stats.collect_trial_data(
+    allfiles, collect_types=['model']
+)
 
-# collect the data into numpy arrays
-# all model variables will be normalized into gait cycles (x axis 0..100%)
-data_all, ncycles, toeoff_frames = gaitutils.stats.collect_trial_data(trials)
+
+# %% plot some curves
 knee_flex = data_all['model']['LKneeAnglesX']  # extract left sagittal knee angle
-knee_toeoffs = toeoff_frames['model']['LKneeAnglesX']
 plt.figure()
 plt.plot(knee_flex.T)  # matplotlib plots columns by default, so transpose
 
 
 # %% analyze curves
+# we need to supply the toeoff frames for each curve, so that
+# stance and swing phases can be separated
+knee_toeoffs = [c.toeoffn for c in cycles_all['model']['LKneeAnglesX']]
 res = gaitutils.stats.curve_extract_values(knee_flex, knee_toeoffs)
 swing_peak_max = res['peaks']['swing']['max']
 plt.figure()
 plt.hist(swing_peak_max, bins=10)
-plt.title('Knee angle peak value during swing phase')
+plt.title('Peak knee flexion during swing phase')
