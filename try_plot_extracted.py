@@ -43,11 +43,15 @@ from plotly.subplots import make_subplots
 from gaitutils.viz.plot_plotly import _get_plotly_axis_labels
 from gaitutils.viz.plot_common import _cyclical_mapper
 from gaitutils import cfg
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
 
 # let's get all sessions under this dir...
 rootdir = r"Z:\Userdata_Vicon_Server"
 rootdir = r"C:\Temp\D0063_RR"
-rootdir = r"C:\Users\hus20664877\vicon_data\D0063_RR"
+rootdir = r"Z:\Userdata_Vicon_Server\1_Diplegia\D0063_RR"
+
 # ...newer than this date
 date = datetime.datetime(2018, 1, 1)
 # tags for dynamic trials
@@ -57,8 +61,8 @@ substrings = None
 
 # %% try out plotting
 
-sessions = utils.get_sessiondirs(rootdir, newer_than=date, substrings=substrings)
 
+sessions = utils.get_sessiondirs(rootdir, newer_than=date, substrings=substrings)
 
 def plot_extracted_comparison(sessions, vardefs):
     """Plot comparison of session extracted values as histogram"""
@@ -98,7 +102,7 @@ def plot_extracted_comparison(sessions, vardefs):
     models = set(gaitutils.models.model_from_var(vardef[0]) for vardef in vardefs)
     # extract the curve values
     vals = {
-        session: gaitutils.stats._extract_values(session, models)
+        session: gaitutils.stats._extract_values(session, tags=None, from_models=models)
         for session in sessions
     }
 
@@ -122,6 +126,7 @@ def plot_extracted_comparison(sessions, vardefs):
                 legendgroups.add(session)
                 hist = go.Histogram(
                     x=hist_x,
+                    nbinsx=15,
                     name=session,
                     legendgroup=session,
                     showlegend=show_legend,
@@ -144,10 +149,10 @@ def plot_extracted_comparison(sessions, vardefs):
                         'standoff': 0,
                     }
                 )
-    # Overlay both histograms
+    # overlay the  histograms
     fig.update_layout(barmode='overlay')
-    # Reduce opacity to see both histograms
-    fig.update_traces(opacity=0.75)
+    # reduce opacity
+    fig.update_traces(opacity=0.5)
     gaitutils.viz.plot_misc.show_fig(fig)
 
 
