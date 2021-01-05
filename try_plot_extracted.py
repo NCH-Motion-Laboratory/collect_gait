@@ -67,7 +67,9 @@ date = datetime.datetime(2018, 1, 1)
 tags = ['E1', 'E2', 'E3', 'T1', 'T2', 'T3']
 substrings = None
 
-sessions = list(utils.get_sessiondirs(rootdir, newer_than=date, substrings=substrings))
+sessions = list(utils.get_sessiondirs(rootdir, newer_than=date, substrings=substrings))[
+    :2
+]
 
 
 # %% try out plotting
@@ -96,7 +98,10 @@ def _compose_varname(vardef):
         phase = vardef[2]  # swing, stance etc.
         valtype = vardef[3]  # min, max etc.
         val_trans = {'max': 'maximum', 'min': 'minimum'}
-        name += ', %s phase %s' % (phase, val_trans[valtype])
+        if phase == 'overall':
+            name += ', %s %s' % (phase, val_trans[valtype])
+        else:
+            name += ', %s phase %s' % (phase, val_trans[valtype])
         if vardef[1] == 'peaks':
             name += ' peak'
     return name
@@ -107,67 +112,6 @@ def _var_unit(vardef):
     varname = vardef[0]
     themodel = gaitutils.models.model_from_var(varname)
     return themodel.units[varname]
-
-
-def hist_comparison(sessions, vardefs):
-    """Plot comparison of extracted values as histogram"""
-
-    # find the necessary models
-    models = set(gaitutils.models.model_from_var(vardef[0]) for vardef in vardefs)
-    # extract the curve values
-    vals = {
-        session: gaitutils.stats._extract_values(session, tags=None, from_models=models)
-        for session in sessions
-    }
-
-    ctxts = ['Left', 'Right']
-    subtitles = [
-        _compose_varname(nested_keys) for nested_keys in vardefs for ctxt in ctxts
-    ]
-
-    nvars = len(vardefs)
-    fig = make_subplots(rows=nvars, cols=2, subplot_titles=subtitles)
-    legendgroups = set()
-    trace_colors = _cyclical_mapper(cfg.plot.colors)
-
-    # plot the histogram for each session
-    for session, session_vals in vals.items():
-        for row, vardef in enumerate(vardefs):
-            for col, ctxt in enumerate('LR'):
-                vardef_ctxt = [ctxt + vardef[0]] + vardef[1:]
-                xvals = _nested_get(session_vals, vardef_ctxt)
-                show_legend = session not in legendgroups
-                legendgroups.add(session)
-                hist = go.Histogram(
-                    x=xvals,
-                    nbinsx=15,
-                    name=session,
-                    legendgroup=session,
-                    showlegend=show_legend,
-                    opacity=0.5,
-                    marker_color=trace_colors[session],
-                )
-                fig.append_trace(hist, row=row + 1, col=col + 1)
-                ylabel = _var_unit(vardef)
-                xlabel = 'N'
-                xaxis, yaxis = _get_plotly_axis_labels(row, col, ncols=2)
-                fig['layout'][yaxis].update(
-                    title={
-                        'text': xlabel,
-                        'standoff': 0,
-                    }
-                )
-                fig['layout'][xaxis].update(
-                    title={
-                        'text': ylabel,
-                        'standoff': 0,
-                    }
-                )
-    # overlay the  histograms
-    fig.update_layout(barmode='overlay')
-    # reduce opacity
-    fig.update_traces(opacity=0.5)
-    gaitutils.viz.plot_misc.show_fig(fig)
 
 
 def box_comparison(sessions, vardefs):
@@ -201,18 +145,18 @@ def box_comparison(sessions, vardefs):
                 legendgroups.add(session_)
 
                 box = go.Box(
-                    #x=np.arange(len(xvals)),
+                    x=[session_] * len(xvals),
                     y=xvals,
-                    #boxpoints='all',
+                    # boxpoints='all',
                     name=session_,
                     legendgroup=session_,
                     showlegend=show_legend,
                     opacity=0.5,
-                    #mode='lines+markers',
+                    # mode='lines+markers',
                     marker_color=trace_colors[session_],
                 )
                 fig.append_trace(box, row=row + 1, col=col + 1)
-                xlabel = _var_unit(vardef)
+                xlabel = _var_unit(vardef_ctxt)
                 xaxis, yaxis = _get_plotly_axis_labels(row, col, ncols=2)
                 fig['layout'][yaxis].update(
                     title={
@@ -224,7 +168,7 @@ def box_comparison(sessions, vardefs):
 
 
 # %% try it out
-# example vardefs
+# kinematics vardefs
 
 
 vardefs = [
@@ -233,12 +177,26 @@ vardefs = [
     ['HipAnglesX', 'contact'],
     ['AnkleAnglesX', 'extrema', 'stance', 'min'],
     ['KneeAnglesX', 'extrema', 'stance', 'max'],
-    ['HipAnglesX', 'extrema', 'stance', 'min'],
     ['KneeAnglesX', 'extrema', 'swing', 'max'],
-    # ['KneeAnglesX', 'extrema', 'swing', 'max'],
+    ['HipAnglesX', 'extrema', 'stance', 'min'], 
     ['HipAnglesX', 'extrema', 'swing', 'max'],
+]
+box_comparison(sessions, vardefs)
+
+
+# %% kinetics vardefs
+vardefs = [
+    ['HipMomentY', 'extrema', 'overall', 'max'],
+    ['KneeMomentX', 'extrema', 'overall', 'max'],
+    ['AnkleMomentX', 'extrema', 'overall', 'max'],
+    ['AnklePowerZ', 'extrema', 'overall', 'max'],
+    ['NormalisedGRFX', 'extrema', 'overall', 'min'],
+    ['NormalisedGRFX', 'extrema', 'overall', 'max'],
+
 ]
 
 # print(list(m.desc for m in plot_extracted_comparison(sessions, vardefs)))
-#hist_comparison(sessions, vardefs)
+# hist_comparison(sessions, vardefs)
 box_comparison(sessions, vardefs)
+
+# %%
