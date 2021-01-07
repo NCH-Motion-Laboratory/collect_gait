@@ -68,7 +68,7 @@ tags = ['E1', 'E2', 'E3', 'T1', 'T2', 'T3']
 substrings = None
 
 sessions = list(utils.get_sessiondirs(rootdir, newer_than=date, substrings=substrings))[
-    :2
+    :3
 ]
 
 
@@ -114,62 +114,94 @@ def _var_unit(vardef):
     return themodel.units[varname]
 
 
-def box_comparison(sessions, vardefs):
+def box_comparison(sessions, vardefs, vals):
     """Plot comparison of extracted values as box plot"""
 
-    # find the necessary models
-    models = set(gaitutils.models.model_from_var(vardef[0]) for vardef in vardefs)
-    # extract the curve values
-    vals = {
-        session: gaitutils.stats._extract_values(session, tags=None, from_models=models)
-        for session in sessions
-    }
-
-    ctxts = ['Left', 'Right']
-    subtitles = [
-        _compose_varname(nested_keys) for nested_keys in vardefs for ctxt in ctxts
-    ]
+    subtitles = [_compose_varname(nested_keys) for nested_keys in vardefs]
 
     nvars = len(vardefs)
-    fig = make_subplots(rows=nvars, cols=2, subplot_titles=subtitles)
+    fig = make_subplots(rows=nvars, cols=1, subplot_titles=subtitles)
     legendgroups = set()
     trace_colors = _cyclical_mapper(cfg.plot.colors)
 
-    for session, session_vals in vals.items():
-        for row, vardef in enumerate(vardefs):
-            for col, ctxt in enumerate('LR'):
-                vardef_ctxt = [ctxt + vardef[0]] + vardef[1:]
-                xvals = _nested_get(session_vals, vardef_ctxt)
-                session_ = op.split(session)[-1]
-                show_legend = session_ not in legendgroups
-                legendgroups.add(session_)
+    # y will be the concatenated vals for all sessions; x will be the corresponding session names
+    # this is done separately for L/R
 
-                box = go.Box(
-                    x=[session_] * len(xvals),
-                    y=xvals,
-                    # boxpoints='all',
-                    name=session_,
-                    legendgroup=session_,
-                    showlegend=show_legend,
-                    opacity=0.5,
-                    # mode='lines+markers',
-                    marker_color=trace_colors[session_],
-                )
-                fig.append_trace(box, row=row + 1, col=col + 1)
-                xlabel = _var_unit(vardef_ctxt)
-                xaxis, yaxis = _get_plotly_axis_labels(row, col, ncols=2)
-                fig['layout'][yaxis].update(
-                    title={
-                        'text': xlabel,
-                        'standoff': 0,
-                    }
-                )
+    for row, vardef in enumerate(vardefs):
+
+        ctxt = 'L'
+        vardef_ctxt = [ctxt + vardef[0]] + vardef[1:]
+        # this looks horrible. the idea is just to get lists of values and the corresponding sessions
+        lvals, sessionnames_l = list(zip(
+            *itertools.chain.from_iterable(
+                zip(_nested_get(session_vals, vardef_ctxt), itertools.repeat(op.split(session)[-1]))
+                for session, session_vals in vals.items()
+            )
+        )
+        )
+
+        ctxt = 'R'
+        vardef_ctxt = [ctxt + vardef[0]] + vardef[1:]
+        rvals, sessionnames_r = list(zip(
+            *itertools.chain.from_iterable(
+                zip(_nested_get(session_vals, vardef_ctxt), itertools.repeat(op.split(session)[-1]))
+                for session, session_vals in vals.items()
+            )
+        )
+        )
+
+        
+        show_legend = 'L' not in legendgroups
+        legendgroups.add('L')
+        box1 = go.Box(
+            x=sessionnames_l,
+            y=lvals,
+            # boxpoints='all',
+            name='L',
+            offsetgroup='L',
+            legendgroup='L',
+            showlegend=show_legend,
+            opacity=0.5,
+            # mode='lines+markers',
+            marker_color=cfg.plot.context_colors['L']
+        )
+        fig.append_trace(box1, row=row + 1, col=1)
+
+        show_legend = 'R' not in legendgroups
+        legendgroups.add('R')
+        box2 = go.Box(
+            x=sessionnames_r,
+            y=rvals,
+            # boxpoints='all',
+            name='R',
+            offsetgroup='R',            
+            legendgroup='R',
+            showlegend=show_legend,
+            opacity=0.5,
+            # mode='lines+markers',
+            marker_color=cfg.plot.context_colors['R']
+        )
+        fig.append_trace(box2, row=row + 1, col=1)
+
+        xlabel = _var_unit(vardef_ctxt)
+        xaxis, yaxis = _get_plotly_axis_labels(row, 0, ncols=1)
+        fig['layout'][yaxis].update(
+            title={
+                'text': xlabel,
+                'standoff': 0,
+            }
+        )
+
+    fig.update_layout(
+       boxmode='group' # group together boxes of the different traces for each value of x
+    )
+
     gaitutils.viz.plot_misc.show_fig(fig)
+
 
 
 # %% try it out
 # kinematics vardefs
-
 
 vardefs = [
     ['AnkleAnglesX', 'contact'],
@@ -178,10 +210,23 @@ vardefs = [
     ['AnkleAnglesX', 'extrema', 'stance', 'min'],
     ['KneeAnglesX', 'extrema', 'stance', 'max'],
     ['KneeAnglesX', 'extrema', 'swing', 'max'],
-    ['HipAnglesX', 'extrema', 'stance', 'min'], 
+    ['HipAnglesX', 'extrema', 'stance', 'min'],
     ['HipAnglesX', 'extrema', 'swing', 'max'],
 ]
-box_comparison(sessions, vardefs)
+
+# find the necessary models
+models = set(gaitutils.models.model_from_var(vardef[0]) for vardef in vardefs)
+# extract the curve values
+vals = {
+    session: gaitutils.stats._extract_values(session, tags=None, from_models=models)
+    for session in sessions
+}
+
+box_comparison(sessions, vardefs, vals)
+
+
+
+# %% plot
 
 
 # %% kinetics vardefs
@@ -192,11 +237,38 @@ vardefs = [
     ['AnklePowerZ', 'extrema', 'overall', 'max'],
     ['NormalisedGRFX', 'extrema', 'overall', 'min'],
     ['NormalisedGRFX', 'extrema', 'overall', 'max'],
-
 ]
 
 # print(list(m.desc for m in plot_extracted_comparison(sessions, vardefs)))
 # hist_comparison(sessions, vardefs)
 box_comparison(sessions, vardefs)
 
-# %%
+
+
+# %% try go.Box
+
+#fig = go.Figure()
+
+fig = make_subplots(rows=2, cols=1)
+
+for k in range(2):
+
+    data = np.random.randn(300)
+    x = ['G1'] * 100 + ['G2'] * 100 + ['G3'] * 100
+    tracel = go.Box(y=data, x=x, name='L', offsetgroup='L')
+    fig.append_trace(tracel, row=k+1, col=1)
+
+    data = np.random.randn(300) + 1
+    x = ['G1'] * 100 + ['G2'] * 100 + ['G3'] * 100
+    tracer = go.Box(y=data, x=x, name='R', offsetgroup='R')
+    fig.append_trace(tracer, row=k+1, col=1)
+
+
+
+if True:
+    fig.update_layout(
+        boxmode='group'  # group together boxes of the different traces for each value of x
+    )
+
+
+gaitutils.viz.plot_misc.show_fig(fig)
