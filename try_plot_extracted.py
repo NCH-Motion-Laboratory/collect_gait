@@ -8,14 +8,8 @@ TODO:
 L/R column titles
 avg/stddev lines?
 JP defined vars
-x axis scaling
 
-try different chart types:
-strip chart: https://plotly.com/python/strip-charts/  - staggered scatterplot
-    -needs px, pandas
-box chart: https://plotly.com/python/box-plots/  - e.g. median and quartiles
-
-
+need implementation that can use already loaded Trial(s)
 
 
 halutut muuttujat:
@@ -54,7 +48,7 @@ from gaitutils.viz.plot_common import _cyclical_mapper
 from gaitutils import cfg
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
 
 # let's get all sessions under this dir...
 rootdir = r"Z:\Userdata_Vicon_Server"
@@ -67,9 +61,17 @@ date = datetime.datetime(2018, 1, 1)
 tags = ['E1', 'E2', 'E3', 'T1', 'T2', 'T3']
 substrings = None
 
-sessions = list(utils.get_sessiondirs(rootdir, newer_than=date, substrings=substrings))[
-    :3
-]
+sessions = list(utils.get_sessiondirs(rootdir, newer_than=date, substrings=substrings))
+
+session_trials = {
+    session: gaitutils.sessionutils._get_tagged_dynamic_c3ds_from_sessions(
+        session, tags=cfg.eclipse.tags
+    )
+    for session in sessions
+}
+
+curve_vals = {session: gaitutils.stats._extract_values_trials(trials) for session, trials in session_trials.items()}
+
 
 
 # %% try out plotting
@@ -114,43 +116,37 @@ def _var_unit(vardef):
     return themodel.units[varname]
 
 
-def box_comparison(sessions, vardefs, vals):
-    """Plot comparison of extracted values as box plot"""
+def box_comparison(curve_vals, vardefs):
+    """Plot comparison of extracted values as box plot.
 
-    subtitles = [_compose_varname(nested_keys) for nested_keys in vardefs]
-
+    Parameters
+    ----------
+    vardefs : list
+        List of variable definitions.
+    curve_vals : dict
+        The curve extracted data, keyed by session. 
+    """
     nvars = len(vardefs)
+    subtitles = [_compose_varname(nested_keys) for nested_keys in vardefs]
     fig = make_subplots(rows=nvars, cols=1, subplot_titles=subtitles)
     legendgroups = set()
     trace_colors = _cyclical_mapper(cfg.plot.colors)
 
-    # y will be the concatenated vals for all sessions; x will be the corresponding session names
-    # this is done separately for L/R
+    # the following dicts are keyed by L/R context
+    # the concatenated vals for all sessions
+    vals = dict()
+    # the corresponding session names for each value
+    sessionnames = defaultdict()
 
     for row, vardef in enumerate(vardefs):
+        for session, session_vals in curve_vals.items():
+            for ctxt in 'LR':
+                this_vals = _nested_get(session_vals, vardef_ctxt)
+                vals[ctxt].extend(this_vals)
+                sessiondir = op.split(session)[-1]
+                sessionnames[ctxt].extend([sessiondir] * len(this_vals))
 
-        ctxt = 'L'
-        vardef_ctxt = [ctxt + vardef[0]] + vardef[1:]
-        # this looks horrible. the idea is just to get lists of values and the corresponding sessions
-        lvals, sessionnames_l = list(zip(
-            *itertools.chain.from_iterable(
-                zip(_nested_get(session_vals, vardef_ctxt), itertools.repeat(op.split(session)[-1]))
-                for session, session_vals in vals.items()
-            )
-        )
-        )
 
-        ctxt = 'R'
-        vardef_ctxt = [ctxt + vardef[0]] + vardef[1:]
-        rvals, sessionnames_r = list(zip(
-            *itertools.chain.from_iterable(
-                zip(_nested_get(session_vals, vardef_ctxt), itertools.repeat(op.split(session)[-1]))
-                for session, session_vals in vals.items()
-            )
-        )
-        )
-
-        
         show_legend = 'L' not in legendgroups
         legendgroups.add('L')
         box1 = go.Box(
@@ -163,7 +159,7 @@ def box_comparison(sessions, vardefs, vals):
             showlegend=show_legend,
             opacity=0.5,
             # mode='lines+markers',
-            marker_color=cfg.plot.context_colors['L']
+            marker_color=cfg.plot.context_colors['L'],
         )
         fig.append_trace(box1, row=row + 1, col=1)
 
@@ -174,12 +170,12 @@ def box_comparison(sessions, vardefs, vals):
             y=rvals,
             # boxpoints='all',
             name='R',
-            offsetgroup='R',            
+            offsetgroup='R',
             legendgroup='R',
             showlegend=show_legend,
             opacity=0.5,
             # mode='lines+markers',
-            marker_color=cfg.plot.context_colors['R']
+            marker_color=cfg.plot.context_colors['R'],
         )
         fig.append_trace(box2, row=row + 1, col=1)
 
@@ -193,11 +189,10 @@ def box_comparison(sessions, vardefs, vals):
         )
 
     fig.update_layout(
-       boxmode='group' # group together boxes of the different traces for each value of x
+        boxmode='group'  # group together boxes of the different traces for each value of x
     )
 
     gaitutils.viz.plot_misc.show_fig(fig)
-
 
 
 # %% try it out
@@ -214,16 +209,7 @@ vardefs = [
     ['HipAnglesX', 'extrema', 'swing', 'max'],
 ]
 
-# find the necessary models
-models = set(gaitutils.models.model_from_var(vardef[0]) for vardef in vardefs)
-# extract the curve values
-vals = {
-    session: gaitutils.stats._extract_values(session, tags=None, from_models=models)
-    for session in sessions
-}
-
-box_comparison(sessions, vardefs, vals)
-
+box_comparison(sessions, vardefs, curve_vals)
 
 
 # %% plot
@@ -244,10 +230,9 @@ vardefs = [
 box_comparison(sessions, vardefs)
 
 
-
 # %% try go.Box
 
-#fig = go.Figure()
+# fig = go.Figure()
 
 fig = make_subplots(rows=2, cols=1)
 
@@ -256,13 +241,12 @@ for k in range(2):
     data = np.random.randn(300)
     x = ['G1'] * 100 + ['G2'] * 100 + ['G3'] * 100
     tracel = go.Box(y=data, x=x, name='L', offsetgroup='L')
-    fig.append_trace(tracel, row=k+1, col=1)
+    fig.append_trace(tracel, row=k + 1, col=1)
 
     data = np.random.randn(300) + 1
     x = ['G1'] * 100 + ['G2'] * 100 + ['G3'] * 100
     tracer = go.Box(y=data, x=x, name='R', offsetgroup='R')
-    fig.append_trace(tracer, row=k+1, col=1)
-
+    fig.append_trace(tracer, row=k + 1, col=1)
 
 
 if True:
