@@ -130,61 +130,43 @@ def box_comparison(curve_vals, vardefs):
     subtitles = [_compose_varname(nested_keys) for nested_keys in vardefs]
     fig = make_subplots(rows=nvars, cols=1, subplot_titles=subtitles)
     legendgroups = set()
-    trace_colors = _cyclical_mapper(cfg.plot.colors)
 
-    # the following dicts are keyed by L/R context
-    # the concatenated vals for all sessions
-    vals = dict()
-    # the corresponding session names for each value
-    sessionnames = defaultdict()
-
+    # the plotting logic is a bit weird due to the way go.Box() works:
+    # -we first consolidate one variable's data from all sessions into a 1-d array
+    # -this is done separately for L/R context
+    # -the consolidated data is then plotted along with the session identifier
     for row, vardef in enumerate(vardefs):
-        for session, session_vals in curve_vals.items():
             for ctxt in 'LR':
-                this_vals = _nested_get(session_vals, vardef_ctxt)
-                vals[ctxt].extend(this_vals)
-                sessiondir = op.split(session)[-1]
-                sessionnames[ctxt].extend([sessiondir] * len(this_vals))
-
-
-        show_legend = 'L' not in legendgroups
-        legendgroups.add('L')
-        box1 = go.Box(
-            x=sessionnames_l,
-            y=lvals,
-            # boxpoints='all',
-            name='L',
-            offsetgroup='L',
-            legendgroup='L',
-            showlegend=show_legend,
-            opacity=0.5,
-            # mode='lines+markers',
-            marker_color=cfg.plot.context_colors['L'],
-        )
-        fig.append_trace(box1, row=row + 1, col=1)
-
-        show_legend = 'R' not in legendgroups
-        legendgroups.add('R')
-        box2 = go.Box(
-            x=sessionnames_r,
-            y=rvals,
-            # boxpoints='all',
-            name='R',
-            offsetgroup='R',
-            legendgroup='R',
-            showlegend=show_legend,
-            opacity=0.5,
-            # mode='lines+markers',
-            marker_color=cfg.plot.context_colors['R'],
-        )
-        fig.append_trace(box2, row=row + 1, col=1)
-
-        xlabel = _var_unit(vardef_ctxt)
-        xaxis, yaxis = _get_plotly_axis_labels(row, 0, ncols=1)
-        fig['layout'][yaxis].update(
-            title={
-                'text': xlabel,
-                'standoff': 0,
+                vals = list()
+                sessionnames = list()
+                vardef_ctxt = [ctxt + vardef[0]] + vardef[1:]
+                for session, session_vals in curve_vals.items():
+                    this_vals = _nested_get(session_vals, vardef_ctxt)
+                    vals.extend(this_vals)
+                    sessiondir = op.split(session)[-1]
+                    sessionnames.extend([sessiondir] * len(this_vals))
+                # show entry in legend only if it was not already shown
+                show_legend = ctxt not in legendgroups
+                legendgroups.add(ctxt)
+                box = go.Box(
+                    x=sessionnames,
+                    y=vals,
+                    # boxpoints='all',
+                    name=ctxt,
+                    offsetgroup=ctxt,
+                    legendgroup=ctxt,
+                    showlegend=show_legend,
+                    opacity=0.5,
+                    # mode='lines+markers',
+                    marker_color=cfg.plot.context_colors[ctxt],
+                )
+                fig.append_trace(box, row=row + 1, col=1)
+                xlabel = _var_unit(vardef_ctxt)
+                xaxis, yaxis = _get_plotly_axis_labels(row, 0, ncols=1)
+                fig['layout'][yaxis].update(
+                    title={
+                        'text': xlabel,
+                        'standoff': 0,
             }
         )
 
@@ -209,10 +191,7 @@ vardefs = [
     ['HipAnglesX', 'extrema', 'swing', 'max'],
 ]
 
-box_comparison(sessions, vardefs, curve_vals)
-
-
-# %% plot
+box_comparison(curve_vals, vardefs)
 
 
 # %% kinetics vardefs
@@ -225,9 +204,7 @@ vardefs = [
     ['NormalisedGRFX', 'extrema', 'overall', 'max'],
 ]
 
-# print(list(m.desc for m in plot_extracted_comparison(sessions, vardefs)))
-# hist_comparison(sessions, vardefs)
-box_comparison(sessions, vardefs)
+box_comparison(curve_vals, vardefs)
 
 
 # %% try go.Box
