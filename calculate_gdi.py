@@ -84,7 +84,7 @@ with open(csvfn, encoding='utf-8') as csvfile:
         if len(row) > 1:
             raise RuntimeError('invalid row')
         row = row[0]
-        # this is only for paths beginning with \\husnasdb
+        # this is only needed for paths beginning with \\husnasdb
         #row = row[row.find('Vicon_data') + 10 :]
         #path = pathlib.Path(drive_letter + row)
         path = pathlib.Path(row)
@@ -130,7 +130,7 @@ for c3dfile in c3dfiles:
 import time
 import os.path as op
 
-for k, c3dfile in enumerate(reversed(c3dfiles_unique), 1):
+for k, c3dfile in enumerate(list(reversed(c3dfiles_unique))[80:], 1):
     if any(excl in str(c3dfile) for excl in exclude_list):
         print(f'in exclude list: {path}')
         continue
@@ -143,7 +143,7 @@ for k, c3dfile in enumerate(reversed(c3dfiles_unique), 1):
 # %% the real deal: compute GDIs for all trials, write into XLSX
 # define the 'c3dfiles' variable first
 
-fname_xls = r"C:\Temp\gdi.xlsx"
+fname_xls = rf"C:\Temp\gdi_{pathlib.Path(csvfn).stem}.xlsx"
 
 wb = openpyxl.Workbook()
 ws = wb.active
@@ -154,7 +154,11 @@ counter = 1
 for col, c3dfile in enumerate(c3dfiles, 3):
     _compute_gdi(c3dfile)
     vicon.SaveTrial(60)
-    gdi = _read_gdi()
+    try:
+        gdi = _read_gdi()
+    except gaitutils.GaitDataError:
+        print(f'***skipping trial {c3dfile}, multiple subjects in session or other error')
+
     _bold_cell(ws, column=col, row=4, value=str(c3dfile))
     ws.cell(column=col, row=5, value=gdi['Right'])
     ws.cell(column=col, row=6, value=gdi['Left'])
