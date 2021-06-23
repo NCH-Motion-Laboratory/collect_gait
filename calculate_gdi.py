@@ -39,9 +39,6 @@ def _auto_adjust(ws):
         ws.column_dimensions[col].width = value
 
 
-vicon = gaitutils.nexus.viconnexus()
-
-
 def _compute_gdi(c3dfile):
     """Compute GDI in Nexus for a given c3d file"""
     gdi_pipeline = 'Calculate GDI'  # Nexus pipeline name
@@ -63,6 +60,9 @@ def _read_gdi():
     return gdi
 
 
+vicon = gaitutils.nexus.viconnexus()
+
+
 # %% some test files
 testdir = r"C:\Temp\D0061_VH\2019_2_11_PostOp10kk_VH"
 c3dfiles = gaitutils.sessionutils.get_c3ds(testdir, trial_type='dynamic')
@@ -77,16 +77,16 @@ c3dfiles = list()
 types = set()
 with open(csvfn, encoding='utf-8') as csvfile:
     reader = csv.reader(csvfile)
-    SKIP_ROWS = 1  # skip this many rows
+    SKIP_ROWS = 1  # skip this many rows in the beginning
     for k, row in enumerate(reader):
         if k < SKIP_ROWS:
             continue
         if len(row) > 1:
-            raise RuntimeError('invalid row')
+            raise RuntimeError('rows should only contain one element (file path)')
         row = row[0]
         # this is only needed for paths beginning with \\husnasdb
-        #row = row[row.find('Vicon_data') + 10 :]
-        #path = pathlib.Path(drive_letter + row)
+        # row = row[row.find('Vicon_data') + 10 :]
+        # path = pathlib.Path(drive_letter + row)
         path = pathlib.Path(row)
         if any(excl in str(path) for excl in exclude_list):
             print(f'in exclude list: {path}')
@@ -98,7 +98,7 @@ with open(csvfn, encoding='utf-8') as csvfile:
         if not enffile.exists():
             # try alternative naming
             ind = str(path).find('.c3d') - 2
-            nn = str(path)[ind:ind+2]
+            nn = str(path)[ind : ind + 2]
             enffile = pathlib.Path(str(path).replace('.c3d', f'.Trial{nn}.enf'))
             if not enffile.exists():  # give up
                 raise FileNotFoundError(enffile)
@@ -157,8 +157,10 @@ for col, c3dfile in enumerate(c3dfiles, 3):
     try:
         gdi = _read_gdi()
     except gaitutils.GaitDataError:
-        print(f'***skipping trial {c3dfile}, multiple subjects in session or other error')
-
+        print(
+            f'***skipping trial {c3dfile}, multiple subjects in session or other error'
+        )
+        continue
     _bold_cell(ws, column=col, row=4, value=str(c3dfile))
     ws.cell(column=col, row=5, value=gdi['Right'])
     ws.cell(column=col, row=6, value=gdi['Left'])
@@ -169,4 +171,3 @@ for col, c3dfile in enumerate(c3dfiles, 3):
 
 # _auto_adjust(ws)
 wb.save(filename=fname_xls)
-
